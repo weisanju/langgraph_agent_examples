@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "天气助手": "./src/agent/weather_graph.py:graph"
+  },
+  "env": ".env",
+  "image_distro": "wolfi"
+}
