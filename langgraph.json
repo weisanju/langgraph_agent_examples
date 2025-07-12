@@ -1,7 +1,9 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "天气助手": "./src/agent/weather_graph.py:graph"
+    "天气助手": "./src/agent/weather_graph.py:weather_graph",
+    "对话机器人": "./src/agent/chat_agent.py:chat_graph",
+    "human_in_the_loop": "./src/agent/human_in_the_loop.py:create_graph"
   },
   "env": ".env",
   "image_distro": "wolfi"
