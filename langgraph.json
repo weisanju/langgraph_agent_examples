@@ -1,9 +1,10 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "å¤©æ°”åŠ©æ‰‹": "./src/agent/weather_graph.py:weather_graph",
-    "å¯¹è¯æœºå™¨äºº": "./src/agent/chat_agent.py:chat_graph",
-    "human_in_the_loop": "./src/agent/human_in_the_loop.py:create_graph"
+    "ÌìÆøÖúÊÖ": "./src/agent/weather_graph.py:weather_graph",
+    "¶Ô»°»úÆ÷ÈË": "./src/agent/chat_agent.py:chat_graph",
+    "human_in_the_loop": "./src/agent/human_in_the_loop.py:create_graph",
+    "ÊÂÊµĞÔĞ£Ñé": "./src/agent/factual_check.py:create_factual_check_agent"
   },
   "env": ".env",
   "image_distro": "wolfi"
