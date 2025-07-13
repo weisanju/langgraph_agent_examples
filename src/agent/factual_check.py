@@ -21,10 +21,12 @@ load_dotenv()
 
 class State(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
-    search_results: Annotated[List[dict],add_messages]
+    search_results: Annotated[List[dict], add_messages]
 
 
-llm = ChatTongyi(model="qwen-max-latest")
+llm = ChatTongyi(model="qwen-max-latest", model_kwargs={
+    "enable_thinking": False
+})
 
 _search_tool = TavilySearch(max_results=5)
 
@@ -41,10 +43,10 @@ def create_search_tool_node():
                 "tool_call_id": tool_call['id'],
             },
             goto=Send('keypoint_extract', {
-            "query": args['query'],
-            "tool_call_id": tool_call['id'],
-            "search_results": search_results.content,
-        }))
+                "query": args['query'],
+                "tool_call_id": tool_call['id'],
+                "search_results": search_results.content,
+            }))
 
     return search
 
@@ -70,12 +72,16 @@ def create_keypoint_extract():
 def create_factual_check():
     llm_with_tool = llm.bind_tools([_search_tool])
     system = """
-    你是一个问题回答助手，请根据用户的问题 使用 知识搜索工具进行检索，可以进行多次检索，并根据检索到的知识，确保能回答问题
-    1. 你可以调用搜索工具进行知识检索
-    2. 当前的检索结果中没有具体提及时，则需要进一步检索 缺失的信息
-    3. 当搜索到的知识足够回答问题时，则直接给出回答。
-    4. 仅回答与用户问题相关的信息
     当前日期为：2025年07月13号
+    
+    你是一个问题回答助手，请根据用户的问题，使用知识搜索工具进行检索。你可以多次调用检索工具，直到获取到足够的信息来回答用户的问题。请遵循以下要求：
+
+    1. 首先，分析用户的问题，确定需要哪些关键信息来完整回答。
+    2. 使用搜索工具进行知识检索，获取相关信息。
+    3. 如果当前检索结果中存在信息缺失、内容不具体或无法直接回答用户问题时，请明确指出缺失的具体信息，并针对这些缺失点，进一步调用检索工具进行补充检索，直到所有关键信息都被补全。
+    4. 检索过程中，每次都要判断现有信息是否足以回答问题，若不足，请继续主动检索缺失的信息内容。
+    5. 仅回答与用户问题直接相关的信息，避免无关内容。
+    6. 当你认为已经获得了足够且准确的知识来回答用户问题时，请对所有检索到的结果进行归纳总结，给出一个清晰、合理的最终回答。
     """
     chain = ChatPromptTemplate.from_messages(
         [
@@ -84,7 +90,7 @@ def create_factual_check():
         ]
     ) | llm_with_tool
 
-    def factual_check(_state: State) :
+    def factual_check(_state: State):
         return {
             "messages": [chain.invoke(_state)],
         }
@@ -97,7 +103,6 @@ def create_factual_check_agent():
     graph.add_node('factual_check', create_factual_check())
     graph.add_node("tools", create_search_tool_node())
     graph.add_node("keypoint_extract", create_keypoint_extract())
-
 
     graph.add_edge(START, "factual_check")
     graph.add_conditional_edges(
@@ -114,7 +119,9 @@ if __name__ == '__main__':
 
     for item in agent.stream({
         "messages": [
-            "2021~2025届第一顺位球员分别是哪些",
+            "2002~2025届第一顺位球员分别是哪些",
         ],
+    }, {
+        "recursion_limit": 40
     }):
         print(item)
