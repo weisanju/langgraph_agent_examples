@@ -40,20 +40,25 @@ class SearchPlannerAgent:
         {tags}
         """
         system = """
-        你的任务是 为下面的标签挖掘任务补充合适的业务知识，生成业务知识检索的query
+        你的任务是：根据下方的标签挖掘任务，判断每个标签是否需要补充相关的业务知识，并为需要补充的标签生成高质量、精准且全面的业务知识检索query。
+
+        ## 输出要求
+        - 仅输出那些确实需要补充业务知识的标签。
+        - 对于每个需要补充的标签，需输出以下字段：
+          1. tagName：需要补充业务知识的标签名称。
+
+          2. keyword：
+              2.1 :用于检索业务知识的核心关键词，要求精准、全面，多个关键词请用空格分隔，避免宽泛或无关词汇。
+              2.2 :当 需要基于词库进行知识库召回时，需要使用正文内容检索，请直接返回  "{{content}}" 关键字
         
-        ## 字段说明
-        1. tagName表示为某一个标签任务补充业务知识。
-        2. keyword为需要检索业务知识的核心关键词实体，多个关键词 空格分隔
-        
-        ## 任务说明
-        判断每一个标签是否需要补充业务知识。仅返回需要补充业务知识的标签名。
-        
-        仅输出如下json格式如下：
+        ## 具体要求
+        - 必须结合任务描述、标签定义和内容，综合分析判断哪些标签需要补充业务知识。
+        - keyword字段应覆盖该标签业务知识检索的所有核心要素，确保检索结果相关且有用。
+        - 输出仅为JSON数组，格式如下，不要输出任何多余内容或解释说明：
         [
             {{
-               "tagName":"xxx",
-               "keyword":"xxx"
+                "tagName": "xxx",
+                "keyword": "xxx"
             }}
         ]
         """
@@ -175,7 +180,7 @@ class AnalysisAgent:
             'content': _state['content'],
             'taskDescription': _state['task_description'],
             'tags': final_tasks,
-            "outputFormat": "按照如下json返回。仅返回json本身\n"+json.dumps(output_format, ensure_ascii=False)
+            "outputFormat": "按照如下json返回。仅返回json本身\n" + json.dumps(output_format, ensure_ascii=False)
         })
 
         return {
@@ -199,6 +204,9 @@ def create_analysis_node():
 
 
 def assign_workers(_state: State):
+    # 判断 search_tasks 是否为空
+    if _state["search_tasks"] is None or len(_state["search_tasks"]) == 0:
+        return [Send("analysis_agent", _state)]
     return [Send("search_and_summary", _s) for _s in _state["search_tasks"]]
 
 
@@ -221,7 +229,7 @@ def build_graph():
     return graph_builder.compile()
 
 
-if __name__ == '__main__':
+def state1():
     content = """
         员工姓名：张三
         性别：男
@@ -243,13 +251,38 @@ if __name__ == '__main__':
         }
     ]
     task_description = "根据提供的员工信息和表现描述，分析并判定是否违反员工守则，同时评估员工等级。"
-    state = {
+    return {
         "content": content,
         "tags": tags,
         "task_description": task_description
     }
+
+
+def state2():
+    task_description = "对文本内容进行以下处理，纠错结果需要返回HTML格式，在原文上直接修改标记：错误文字用<span style='color:red'>标记，修改后文字用<span style='color:green'>标记"
+    content = """
+    近期，乌克兰总统泽连斯基与美国总统特朗普之间的 “隔空交锋” 不断升级，引发国际社会广饭关注。从相互指责到矿产协议争议，两人矛蹲持续激化。在 2 月 28 日美乌首脑会晤前夕，泽连斯基的公开表态更显焦灼，对特朗普提出三大核心质疑，直机美乌关系要害，深刻揭示出双方在战略利益、正红太地缘政制等方面的复杂博弈。
+    """
+    tags = [
+        {
+            "tagName": "标注后的内容",
+            "tagDefinePrompt": """
+                类型：敏感词标注,描述：错误文字标红，并且紧跟敏感词用括号包裹,标记语法：<span style='color:red'>错误的文字(敏感词)</span>, 敏感词列表需要 使用 待分析数据 原文生成关键字从知识库中检索
+                类型：单词纠错标注,描述：错误文字标红，并且紧跟绿色修改后的文字，标记语法：<span style='color:red'>错误的文字</span><span style='color:green'>修改后文字</span>
+                """
+        }
+    ]
+    return {
+        "content": content,
+        "tags": tags,
+        "task_description": task_description
+    }
+
+
+if __name__ == '__main__':
+
     # Invoke
     # final_state = compiled_workflow.invoke(state)
     # print(json.dumps(final_state, ensure_ascii=False))
-    for s in build_graph().stream(state, stream_mode="values", subgraphs=True):
+    for s in build_graph().stream(state1(), stream_mode="values", subgraphs=True):
         print(json.dumps(s, ensure_ascii=False))
